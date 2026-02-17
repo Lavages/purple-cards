@@ -134,11 +134,19 @@
 
                             <div class="flex gap-2">
                                 <template x-for="i in parseInt(rounds)" :key="i">
-                                    <div class="flex flex-col items-center animate-fadeIn">
+                                    <div
+                                        class="flex flex-col items-center gap-1 animate-fadeIn bg-white/40 p-2 rounded-xl border border-purple-50">
                                         <span class="text-[9px] text-purple-400 font-black"
                                             x-text="i == rounds ? 'FINAL' : 'RD ' + i"></span>
+
                                         <input type="number" :name="'cards_{{event}}_r' + i" value="4"
-                                            class="w-12 p-2 bg-white border border-purple-100 rounded-xl text-center text-sm font-bold text-purple-600 focus:ring-2 focus:ring-purple-400 outline-none shadow-sm">
+                                            class="w-12 p-1.5 bg-white border border-purple-100 rounded-lg text-center text-xs font-bold text-purple-600 outline-none">
+
+                                        <input type="text" :name="'cutoff_{{event}}_r' + i" placeholder="Cutoff"
+                                            class="w-14 p-1 bg-white/80 border border-purple-50 rounded text-[8px] text-center outline-none">
+
+                                        <input type="text" :name="'limit_{{event}}_r' + i" placeholder="Limit"
+                                            class="w-14 p-1 bg-white/80 border border-purple-50 rounded text-[8px] text-center outline-none">
                                     </div>
                                 </template>
                             </div>

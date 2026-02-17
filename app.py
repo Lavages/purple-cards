@@ -6,73 +6,119 @@ import io
 
 app = Flask(__name__)
 
-# Updated list with new events included
 EVENTS = [
-    "Face-Turning Octahedron (FTO)", "Mirror Blocks", "Kilominx", "Redi Cube", "Gear Cube", 
-    "Ivy Cube", "Master Pyraminx", "2x2x2 Blindfolded", "Clock One-Handed",
-    "3x3x3 No Inspection", "Team Blindfolded", "2-man Mini Guildford", 
-    "Rubik’s Magic", "Master Magic", "3x3x3 With Feet", "3x3x3 Match The Scramble", 
-    "3x3x3 Supersolve", "Cap On Pen", "3x3x3 Scrambling", "4x4x4 One-Handed", "2x2x2-4x4x4 Relay"
+    "Face-Turning Octahedron (FTO)",
+    "Mirror Blocks",
+    "Kilominx",
+    "Redi Cube",
+    "Gear Cube",
+    "Ivy Cube",
+    "Master Pyraminx",
+    "2x2x2 Blindfolded",
+    "Clock One-Handed",
+    "3x3x3 No Inspection",
+    "Team Blindfolded",
+    "2-man Mini Guildford",
+    "Rubik’s Magic",
+    "Master Magic",
+    "3x3x3 With Feet",
+    "3x3x3 Match The Scramble",
+    "3x3x3 Supersolve",
+    "3x3x3 Scrambling",
+    "4x4x4 One-Handed",
+    "2x2x2-4x4x4 Relay",
+    "3x3x3 With Oven Mitts",
+    "15 Puzzle",
+    "Triangular Clock",
+    "Pentagonal Clock",
+    "Super Pentagonal Clock",
+    "Cap On Pen"
 ]
 
-def draw_card(c, x, y, comp_name, event_name, round_text, format_type):
-    # AUTHENTIC PURPLE AESTHETIC
+def format_time_label(seconds_str):
+    if not seconds_str or not seconds_str.isdigit():
+        return seconds_str
+    total_seconds = int(seconds_str)
+    if total_seconds > 3600: total_seconds = 3600
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    if hours > 0:
+        return f"{hours}:{minutes:02d}:{seconds:02d}"
+    elif minutes > 0:
+        return f"{minutes}:{seconds:02d}"
+    else:
+        return f"{seconds}.00"
+
+def draw_cutting_guides(c, width, height):
+    """Draws light gray dashed lines for perfect 4-way cutting/folding."""
+    c.setDash(1, 4)  # Very fine dots
+    c.setStrokeColorRGB(0.8, 0.8, 0.8)  # Light Gray
+    c.setLineWidth(0.5)
+    # Vertical center line
+    c.line(width/2, 0, width/2, height)
+    # Horizontal center line
+    c.line(0, height/2, width, height/2)
+    c.setDash([]) # Reset to solid for the cards
+
+def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, limit):
     PURPLE = (0.5, 0.2, 0.8) 
     BLACK = (0, 0, 0)
     
     c.setStrokeColorRGB(*PURPLE)
     c.setLineWidth(1.2)
     
-    # Header & Name Boxes
+    # Header - Centered in 10.5cm quadrant
     c.setFont("Helvetica-Bold", 14)
     c.setFillColorRGB(*BLACK)
-    c.drawCentredString(x + 4.85*cm, y + 11.8*cm, comp_name.upper())
+    c.drawCentredString(x + 5.25*cm, y + 13.5*cm, comp_name.upper())
     
-    c.rect(x + 0.5*cm, y + 10.2*cm, 6.5*cm, 0.8*cm)   # Name
-    c.rect(x + 7.2*cm, y + 10.2*cm, 1.0*cm, 0.8*cm) # Group
-    c.rect(x + 8.4*cm, y + 10.2*cm, 0.8*cm, 0.8*cm) # Round
-    c.drawCentredString(x + 8.8*cm, y + 10.5*cm, round_text)
+    # Top Info Boxes
+    start_x = x + 0.9*cm 
+    c.rect(start_x, y + 11.5*cm, 6.5*cm, 0.8*cm)
+    c.rect(start_x + 6.7*cm, y + 11.5*cm, 1.0*cm, 0.8*cm)
+    c.rect(start_x + 7.9*cm, y + 11.5*cm, 0.8*cm, 0.8*cm)
+    c.drawCentredString(start_x + 8.3*cm, y + 11.8*cm, round_text)
     
-    # Event Banner with Mistletoe
+    # Event Banner ⚡
     c.setFillColorRGB(0.95, 0.9, 1.0) 
-    c.rect(x + 0.5*cm, y + 9.0*cm, 8.7*cm, 0.8*cm, fill=1)
+    c.rect(start_x, y + 10.3*cm, 8.7*cm, 0.8*cm, fill=1)
     c.setFillColorRGB(0.3, 0.1, 0.5) 
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(x + 0.8*cm, y + 9.25*cm, f"🌿 {event_name.upper()} 🌿")
+    c.drawCentredString(x + 5.25*cm, y + 10.55*cm, f"⚡ {event_name.upper()} ⚡")
     
-    # Rows Logic: Bo1 = 1, Mo3 = 3, Ao5 = 5
-    if format_type == "Bo1":
-        num_attempts = 1
-    elif format_type == "Mo3":
-        num_attempts = 3
-    else:
-        num_attempts = 5
-    
+    # Result Rows
+    num_attempts = 3 if format_type == "Mo3" else (1 if format_type == "Bo1" else 5)
     for i in range(num_attempts):
-        row_y = y + 7.3*cm - (i * 1.3*cm)
+        row_y = y + 8.6*cm - (i * 1.3*cm)
+        if i == 2 and format_type == "Ao5":
+            c.setDash(3, 3)
+            c.line(start_x, row_y + 1.25*cm, start_x + 8.7*cm, row_y + 1.25*cm)
+            c.setDash([]) 
         c.setStrokeColorRGB(*PURPLE)
-        c.rect(x + 1.2*cm, row_y, 5.3*cm, 1.1*cm) # Result
-        c.rect(x + 6.7*cm, row_y, 1.1*cm, 1.1*cm) # Judge
-        c.rect(x + 8.0*cm, row_y, 1.2*cm, 1.1*cm) # Comp
+        c.rect(start_x + 0.7*cm, row_y, 5.3*cm, 1.1*cm)
+        c.rect(start_x + 6.2*cm, row_y, 1.1*cm, 1.1*cm)
+        c.rect(start_x + 7.5*cm, row_y, 1.2*cm, 1.1*cm)
         c.setFont("Helvetica-Bold", 10)
         c.setFillColorRGB(*BLACK)
-        c.drawString(x + 0.4*cm, row_y + 0.4*cm, str(i + 1))
+        c.drawString(start_x, row_y + 0.4*cm, str(i + 1))
 
-    # Extra Attempt positioning
-    if format_type == "Bo1":
-        extra_y = y + 5.7*cm # High up for Bo1
-    elif format_type == "Mo3":
-        extra_y = y + 3.1*cm 
-    else:
-        extra_y = y + 0.5*cm
-        
-    c.setStrokeColorRGB(*PURPLE)
+    # Extra Attempt
+    extra_y = y + 1.8*cm if format_type == "Ao5" else (y + 4.4*cm if format_type == "Mo3" else y + 7.0*cm)
     c.setFont("Helvetica-Bold", 8)
     c.setFillColorRGB(*PURPLE)
-    c.drawString(x + 1.2*cm, extra_y + 1.15*cm, "✧ EXTRA ATTEMPT ✧")
-    c.rect(x + 1.2*cm, extra_y, 5.3*cm, 1.1*cm)
-    c.rect(x + 6.7*cm, extra_y, 1.1*cm, 1.1*cm)
-    c.rect(x + 8.0*cm, extra_y, 1.2*cm, 1.1*cm)
+    c.drawString(start_x + 0.7*cm, extra_y + 1.15*cm, "Extra attempt (Delegate initials ____)")
+    c.rect(start_x + 0.7*cm, extra_y, 5.3*cm, 1.1*cm)
+    c.rect(start_x + 6.2*cm, extra_y, 1.1*cm, 1.1*cm)
+    c.rect(start_x + 7.5*cm, extra_y, 1.2*cm, 1.1*cm)
+
+    # Cutoff & Limit
+    c.setFont("Helvetica", 9)
+    c.setFillColorRGB(*BLACK)
+    if cutoff:
+        c.drawString(start_x + 0.7*cm, extra_y - 0.5*cm, f"Cutoff: < {format_time_label(cutoff)}")
+    if limit:
+        c.drawRightString(start_x + 8.7*cm, extra_y - 0.5*cm, f"Time limit: {format_time_label(limit)}")
 
 @app.route('/')
 def index():
@@ -84,35 +130,34 @@ def generate():
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-    margin_x = (width - 19*cm) / 2
-    margin_y = (height - 26*cm) / 2
+    card_w, card_h = 10.5 * cm, 14.85 * cm
 
     for event in EVENTS:
         if request.form.get(f'check_{event}'):
             format_type = request.form.get(f'format_{event}', 'Ao5')
             rounds = int(request.form.get(f'rounds_{event}', 1))
-            
             for r in range(1, rounds + 1):
-                round_label = "F" if r == rounds else str(r)
-                try:
-                    total_cards = int(request.form.get(f'cards_{event}_r{r}', 0))
-                except ValueError:
-                    total_cards = 0
+                round_label = str(r) if r < rounds else "F"
+                total_cards = int(request.form.get(f'cards_{event}_r{r}', 0))
+                cutoff = request.form.get(f'cutoff_{event}_r{r}', "")
+                limit = request.form.get(f'limit_{event}_r{r}', "")
                 
                 cards_placed = 0
                 while cards_placed < total_cards:
-                    for row in range(2):
-                        for col in range(2):
+                    # Draw cutting guides before the cards on each new page
+                    draw_cutting_guides(c, width, height)
+                    
+                    for row in range(2): 
+                        for col in range(2): 
                             if cards_placed < total_cards:
-                                x_pos = margin_x + (col * 10*cm)
-                                y_pos = height - margin_y - 13*cm - (row * 13.2*cm)
-                                draw_card(c, x_pos, y_pos, comp_name, event, round_label, format_type)
+                                x_pos = col * card_w
+                                y_pos = (1 - row) * card_h
+                                draw_card(c, x_pos, y_pos, comp_name, event, round_label, format_type, cutoff, limit)
                                 cards_placed += 1
                     c.showPage()
-    
     c.save()
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name=f"{comp_name}_Scorecards.pdf", mimetype='application/pdf')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
