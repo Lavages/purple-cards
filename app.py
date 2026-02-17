@@ -6,6 +6,7 @@ import io
 
 app = Flask(__name__)
 
+# Events listed 1 per line, Cap On Pen last
 EVENTS = [
     "Face-Turning Octahedron (FTO)",
     "Mirror Blocks",
@@ -52,14 +53,12 @@ def format_time_label(seconds_str):
 
 def draw_cutting_guides(c, width, height):
     """Draws light gray dashed lines for perfect 4-way cutting/folding."""
-    c.setDash(1, 4)  # Very fine dots
-    c.setStrokeColorRGB(0.8, 0.8, 0.8)  # Light Gray
+    c.setDash(1, 4)
+    c.setStrokeColorRGB(0.8, 0.8, 0.8)
     c.setLineWidth(0.5)
-    # Vertical center line
     c.line(width/2, 0, width/2, height)
-    # Horizontal center line
     c.line(0, height/2, width, height/2)
-    c.setDash([]) # Reset to solid for the cards
+    c.setDash([])
 
 def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, limit):
     PURPLE = (0.5, 0.2, 0.8) 
@@ -68,7 +67,7 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
     c.setStrokeColorRGB(*PURPLE)
     c.setLineWidth(1.2)
     
-    # Header - Centered in 10.5cm quadrant
+    # Header
     c.setFont("Helvetica-Bold", 14)
     c.setFillColorRGB(*BLACK)
     c.drawCentredString(x + 5.25*cm, y + 13.5*cm, comp_name.upper())
@@ -80,39 +79,58 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
     c.rect(start_x + 7.9*cm, y + 11.5*cm, 0.8*cm, 0.8*cm)
     c.drawCentredString(start_x + 8.3*cm, y + 11.8*cm, round_text)
     
-    # Event Banner ⚡
+    # Event Banner
     c.setFillColorRGB(0.95, 0.9, 1.0) 
     c.rect(start_x, y + 10.3*cm, 8.7*cm, 0.8*cm, fill=1)
     c.setFillColorRGB(0.3, 0.1, 0.5) 
     c.setFont("Helvetica-Bold", 11)
-    c.drawCentredString(x + 5.25*cm, y + 10.55*cm, f"⚡ {event_name.upper()} ⚡")
+    c.drawCentredString(x + 5.25*cm, y + 10.55*cm, event_name.upper())
     
-    # Result Rows
+    # Result Rows Logic
     num_attempts = 3 if format_type == "Mo3" else (1 if format_type == "Bo1" else 5)
+    row_height = 1.1*cm
+    row_spacing = 0.2*cm
+    last_row_y = 0
+
     for i in range(num_attempts):
-        row_y = y + 8.6*cm - (i * 1.3*cm)
-        if i == 2 and format_type == "Ao5":
-            c.setDash(3, 3)
-            c.line(start_x, row_y + 1.25*cm, start_x + 8.7*cm, row_y + 1.25*cm)
+        row_y = y + 8.8*cm - (i * (row_height + row_spacing))
+        last_row_y = row_y
+        
+        # DYNAMIC CUTOFF LINE
+        # Mo3: Line after attempt 1 (index 0)
+        # Ao5: Line after attempt 2 (index 1)
+        # Note: We draw the line ABOVE the row that follows the cutoff point
+        cutoff_trigger_index = 1 if format_type == "Mo3" else 2
+        
+        if i == cutoff_trigger_index and cutoff:
+            mid_y = row_y + row_height + (row_spacing / 2)
+            c.setDash(2, 2)
+            c.setLineWidth(0.8)
+            c.line(start_x, mid_y, start_x + 8.7*cm, mid_y)
             c.setDash([]) 
+            c.setLineWidth(1.2)
+
         c.setStrokeColorRGB(*PURPLE)
-        c.rect(start_x + 0.7*cm, row_y, 5.3*cm, 1.1*cm)
-        c.rect(start_x + 6.2*cm, row_y, 1.1*cm, 1.1*cm)
-        c.rect(start_x + 7.5*cm, row_y, 1.2*cm, 1.1*cm)
+        c.rect(start_x + 0.7*cm, row_y, 5.3*cm, row_height)
+        c.rect(start_x + 6.2*cm, row_y, 1.1*cm, row_height)
+        c.rect(start_x + 7.5*cm, row_y, 1.2*cm, row_height)
         c.setFont("Helvetica-Bold", 10)
         c.setFillColorRGB(*BLACK)
         c.drawString(start_x, row_y + 0.4*cm, str(i + 1))
 
-    # Extra Attempt
-    extra_y = y + 1.8*cm if format_type == "Ao5" else (y + 4.4*cm if format_type == "Mo3" else y + 7.0*cm)
+    # Extra Attempt with "_" on the left
+    extra_gap = 0.8*cm
+    extra_y = last_row_y - (row_height + extra_gap)
+    
     c.setFont("Helvetica-Bold", 8)
     c.setFillColorRGB(*PURPLE)
+    c.drawString(start_x, extra_y + 0.4*cm, "_") 
     c.drawString(start_x + 0.7*cm, extra_y + 1.15*cm, "Extra attempt (Delegate initials ____)")
     c.rect(start_x + 0.7*cm, extra_y, 5.3*cm, 1.1*cm)
     c.rect(start_x + 6.2*cm, extra_y, 1.1*cm, 1.1*cm)
     c.rect(start_x + 7.5*cm, extra_y, 1.2*cm, 1.1*cm)
 
-    # Cutoff & Limit
+    # Cutoff & Limit Labels
     c.setFont("Helvetica", 9)
     c.setFillColorRGB(*BLACK)
     if cutoff:
@@ -144,9 +162,7 @@ def generate():
                 
                 cards_placed = 0
                 while cards_placed < total_cards:
-                    # Draw cutting guides before the cards on each new page
                     draw_cutting_guides(c, width, height)
-                    
                     for row in range(2): 
                         for col in range(2): 
                             if cards_placed < total_cards:
