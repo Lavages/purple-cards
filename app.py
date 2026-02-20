@@ -6,7 +6,7 @@ import io
 
 app = Flask(__name__)
 
-# Events listed 1 per line, Cap On Pen last
+# Events list - restored FTO
 EVENTS = [
     "Face-Turning Octahedron (FTO)",
     "Mirror Blocks",
@@ -37,19 +37,9 @@ EVENTS = [
 ]
 
 def format_time_label(seconds_str):
-    if not seconds_str or not seconds_str.isdigit():
+    if not seconds_str or not str(seconds_str).replace('.', '', 1).isdigit():
         return seconds_str
-    total_seconds = int(seconds_str)
-    if total_seconds > 3600: total_seconds = 3600
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
-    seconds = total_seconds % 60
-    if hours > 0:
-        return f"{hours}:{minutes:02d}:{seconds:02d}"
-    elif minutes > 0:
-        return f"{minutes}:{seconds:02d}"
-    else:
-        return f"{seconds}.00"
+    return seconds_str
 
 def draw_cutting_guides(c, width, height):
     """Draws light gray dashed lines for perfect 4-way cutting/folding."""
@@ -60,7 +50,7 @@ def draw_cutting_guides(c, width, height):
     c.line(0, height/2, width, height/2)
     c.setDash([])
 
-def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, limit):
+def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, limit, competitor_name=""):
     PURPLE = (0.5, 0.2, 0.8) 
     BLACK = (0, 0, 0)
     
@@ -74,10 +64,16 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
     
     # Top Info Boxes
     start_x = x + 0.9*cm 
-    c.rect(start_x, y + 11.5*cm, 6.5*cm, 0.8*cm)
-    c.rect(start_x + 6.7*cm, y + 11.5*cm, 1.0*cm, 0.8*cm)
-    c.rect(start_x + 7.9*cm, y + 11.5*cm, 0.8*cm, 0.8*cm)
+    c.rect(start_x, y + 11.5*cm, 6.5*cm, 0.8*cm) # Name Box
+    c.rect(start_x + 6.7*cm, y + 11.5*cm, 1.0*cm, 0.8*cm) # ID Box
+    c.rect(start_x + 7.9*cm, y + 11.5*cm, 0.8*cm, 0.8*cm) # Round Box
+    
+    c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(start_x + 8.3*cm, y + 11.8*cm, round_text)
+    
+    if competitor_name:
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(start_x + 0.2*cm, y + 11.8*cm, competitor_name.upper())
     
     # Event Banner
     c.setFillColorRGB(0.95, 0.9, 1.0) 
@@ -86,7 +82,7 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
     c.setFont("Helvetica-Bold", 11)
     c.drawCentredString(x + 5.25*cm, y + 10.55*cm, event_name.upper())
     
-    # Result Rows Logic
+    # Result Rows
     num_attempts = 3 if format_type == "Mo3" else (1 if format_type == "Bo1" else 5)
     row_height = 1.1*cm
     row_spacing = 0.2*cm
@@ -96,12 +92,7 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
         row_y = y + 8.8*cm - (i * (row_height + row_spacing))
         last_row_y = row_y
         
-        # DYNAMIC CUTOFF LINE
-        # Mo3: Line after attempt 1 (index 0)
-        # Ao5: Line after attempt 2 (index 1)
-        # Note: We draw the line ABOVE the row that follows the cutoff point
         cutoff_trigger_index = 1 if format_type == "Mo3" else 2
-        
         if i == cutoff_trigger_index and cutoff:
             mid_y = row_y + row_height + (row_spacing / 2)
             c.setDash(2, 2)
@@ -118,10 +109,9 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
         c.setFillColorRGB(*BLACK)
         c.drawString(start_x, row_y + 0.4*cm, str(i + 1))
 
-    # Extra Attempt with "_" on the left
+    # Extra Attempt
     extra_gap = 0.8*cm
     extra_y = last_row_y - (row_height + extra_gap)
-    
     c.setFont("Helvetica-Bold", 8)
     c.setFillColorRGB(*PURPLE)
     c.drawString(start_x, extra_y + 0.4*cm, "_") 
@@ -154,26 +144,49 @@ def generate():
         if request.form.get(f'check_{event}'):
             format_type = request.form.get(f'format_{event}', 'Ao5')
             rounds = int(request.form.get(f'rounds_{event}', 1))
+            
+            raw_event_names = request.form.get(f'names_{event}', '')
+            event_name_list = [n.strip() for n in raw_event_names.split('\n') if n.strip()]
+            
             for r in range(1, rounds + 1):
                 round_label = str(r) if r < rounds else "F"
-                total_cards = int(request.form.get(f'cards_{event}_r{r}', 0))
                 cutoff = request.form.get(f'cutoff_{event}_r{r}', "")
                 limit = request.form.get(f'limit_{event}_r{r}', "")
                 
-                cards_placed = 0
-                while cards_placed < total_cards:
+                # Get the manual card count requested by the user
+                requested_count = int(request.form.get(f'cards_{event}_r{r}', 0))
+                
+                if r == 1:
+                    # Logic: If names provided < card count, fill the rest with blanks
+                    # If names provided > card count, use the full name list
+                    if len(event_name_list) < requested_count:
+                        blanks_needed = requested_count - len(event_name_list)
+                        current_batch = event_name_list + ([""] * blanks_needed)
+                    else:
+                        current_batch = event_name_list
+                else:
+                    # Rounds 2+ always use the numeric card count (usually blank)
+                    current_batch = [""] * requested_count
+
+                idx = 0
+                while idx < len(current_batch):
                     draw_cutting_guides(c, width, height)
                     for row in range(2): 
                         for col in range(2): 
-                            if cards_placed < total_cards:
+                            if idx < len(current_batch):
                                 x_pos = col * card_w
                                 y_pos = (1 - row) * card_h
-                                draw_card(c, x_pos, y_pos, comp_name, event, round_label, format_type, cutoff, limit)
-                                cards_placed += 1
+                                draw_card(c, x_pos, y_pos, comp_name, event, round_label, 
+                                          format_type, cutoff, limit, 
+                                          competitor_name=current_batch[idx])
+                                idx += 1
                     c.showPage()
+                    
     c.save()
     buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name=f"{comp_name}_Scorecards.pdf", mimetype='application/pdf')
+    return send_file(buffer, as_attachment=True, 
+                     download_name=f"{comp_name}_Scorecards.pdf", 
+                     mimetype='application/pdf')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
