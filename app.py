@@ -6,7 +6,7 @@ import io
 
 app = Flask(__name__)
 
-# Events list - restored FTO
+# Events list
 EVENTS = [
     "Face-Turning Octahedron (FTO)",
     "Mirror Blocks",
@@ -18,8 +18,9 @@ EVENTS = [
     "2x2x2 Blindfolded",
     "Clock One-Handed",
     "3x3x3 No Inspection",
-    "Team Blindfolded",
+    "3x3x3 Team-Blind",
     "2-man Mini Guildford",
+    "Mini Guildford",
     "Rubik’s Magic",
     "Master Magic",
     "3x3x3 With Feet",
@@ -33,7 +34,12 @@ EVENTS = [
     "Triangular Clock",
     "Pentagonal Clock",
     "Super Pentagonal Clock",
-    "Cap On Pen"
+    "Super Floppy 1x3x3",
+    "Cap On Pen",
+    "1x1 Blindfolded",
+    "Pyraminx One-Handed",
+    "Super Gear Cube",
+    "3x3 Bets"
 ]
 
 def format_time_label(seconds_str):
@@ -64,16 +70,36 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
     
     # Top Info Boxes
     start_x = x + 0.9*cm 
-    c.rect(start_x, y + 11.5*cm, 6.5*cm, 0.8*cm) # Name Box
+    
+    # Check if team event
+    is_team = "3x3x3 Team-Blind" in event_name or "2-man Mini Guildford" in event_name
+    
+    if is_team:
+        # Split Name Box into two boxes
+        c.rect(start_x, y + 11.9*cm, 6.5*cm, 0.6*cm) # Name Box 1
+        c.rect(start_x, y + 11.3*cm, 6.5*cm, 0.6*cm) # Name Box 2
+        
+        # Parse names: expected format "Name 1 / Name 2"
+        names = competitor_name.split('/')
+        name1 = names[0].strip() if len(names) > 0 else ""
+        name2 = names[1].strip() if len(names) > 1 else ""
+        
+        c.setFont("Helvetica-Bold", 8)
+        if name1: c.drawString(start_x + 0.2*cm, y + 12.05*cm, name1.upper())
+        if name2: c.drawString(start_x + 0.2*cm, y + 11.45*cm, name2.upper())
+    else:
+        # Standard single name box
+        c.rect(start_x, y + 11.5*cm, 6.5*cm, 0.8*cm)
+        if competitor_name:
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(start_x + 0.2*cm, y + 11.8*cm, competitor_name.upper())
+
+    # ID and Round Boxes
     c.rect(start_x + 6.7*cm, y + 11.5*cm, 1.0*cm, 0.8*cm) # ID Box
     c.rect(start_x + 7.9*cm, y + 11.5*cm, 0.8*cm, 0.8*cm) # Round Box
     
     c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(start_x + 8.3*cm, y + 11.8*cm, round_text)
-    
-    if competitor_name:
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(start_x + 0.2*cm, y + 11.8*cm, competitor_name.upper())
     
     # Event Banner
     c.setFillColorRGB(0.95, 0.9, 1.0) 
@@ -83,7 +109,7 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
     c.drawCentredString(x + 5.25*cm, y + 10.55*cm, event_name.upper())
     
     # Result Rows
-    num_attempts = 3 if format_type == "Mo3" else (1 if format_type == "Bo1" else 5)
+    num_attempts = 3 if format_type == "Mo3" or format_type == "Bo3" else (1 if format_type == "Bo1" else 5)
     row_height = 1.1*cm
     row_spacing = 0.2*cm
     last_row_y = 0
@@ -92,7 +118,7 @@ def draw_card(c, x, y, comp_name, event_name, round_text, format_type, cutoff, l
         row_y = y + 8.8*cm - (i * (row_height + row_spacing))
         last_row_y = row_y
         
-        cutoff_trigger_index = 1 if format_type == "Mo3" else 2
+        cutoff_trigger_index = 1 if format_type == "Mo3"or format_type == "Bo3" else 2
         if i == cutoff_trigger_index and cutoff:
             mid_y = row_y + row_height + (row_spacing / 2)
             c.setDash(2, 2)
@@ -153,19 +179,15 @@ def generate():
                 cutoff = request.form.get(f'cutoff_{event}_r{r}', "")
                 limit = request.form.get(f'limit_{event}_r{r}', "")
                 
-                # Get the manual card count requested by the user
                 requested_count = int(request.form.get(f'cards_{event}_r{r}', 0))
                 
                 if r == 1:
-                    # Logic: If names provided < card count, fill the rest with blanks
-                    # If names provided > card count, use the full name list
                     if len(event_name_list) < requested_count:
                         blanks_needed = requested_count - len(event_name_list)
                         current_batch = event_name_list + ([""] * blanks_needed)
                     else:
                         current_batch = event_name_list
                 else:
-                    # Rounds 2+ always use the numeric card count (usually blank)
                     current_batch = [""] * requested_count
 
                 idx = 0
